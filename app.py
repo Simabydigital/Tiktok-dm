@@ -29,25 +29,45 @@ def cmd_queue(args, settings, logger):
         print(q.size())
 
 def cmd_send(args, settings, logger):
+    from time import sleep
+    import random
+
     q = UserQueue(Path(settings.DATABASE_PATH))
     dm = TikTokDM()
+
     limit = args.limit or 10
+    max_attempts = 3
+
     sent = 0
     while sent < limit:
         item = q.dequeue()
         if not item:
             logger.info("Queue empty.")
             break
-        try:
-            ok = dm.send_message(item.user_id, args.message or settings.DEFAULT_MESSAGE)
-            if ok:
-                q.mark_sent(item.id)
-                sent += 1
-            else:
-                q.mark_failed(item.id, "Permanent failure")
-        except Exception as e:
-            q.mark_failed(item.id, f"Retryable error: {e}")
+
+        attempts = 0
+        while attempts < max_attempts:
+            try:
+                ok = dm.send_message(item.user_id, args.message or settings.DEFAULT_MESSAGE)
+                if ok:
+                    q.mark_sent(item.id)
+                    sent += 1
+                    break  # move to next queued user
+                else:
+                    raise RuntimeError("Permanent failure reported by sender")
+            except Exception as e:
+                attempts += 1
+                if attempts >= max_attempts:
+                    q.mark_failed(item.id, f"{type(e).__name__}: {e}")
+                    logger.warning(f"Giving up after {attempts} attempts on {item.user_id}")
+                    break
+                # exponential backoff + tiny jitter
+                backoff = min(2 ** attempts, 60) + random.uniform(0, 0.25)
+                logger.info(f"Retrying {item.user_id} in {backoff:.1f}s (attempt {attempts}/{max_attempts-1})")
+                sleep(backoff)
+
     logger.info(f"Sent {sent} messages (simulated).")
+
 
 def main(argv: Optional[list[str]] = None) -> int:
     settings = Settings()
