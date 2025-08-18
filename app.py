@@ -5,7 +5,7 @@ from typing import Optional
 
 from core.config import Settings
 from core.logger import setup_logger
-from queue.user_queue import UserQueue
+from dm_queue.user_queue import UserQueue
 from collectors.tiktok_comments import read_users_from_csv, write_sample_csv
 from messaging.tiktok_dm import TikTokDM
 
