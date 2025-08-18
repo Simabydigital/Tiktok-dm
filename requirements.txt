@@ -1,0 +1,4 @@
+# Standard library only; add packages later if needed
+# requests
+# python-dotenv
+# pytest
