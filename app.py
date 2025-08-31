@@ -19,7 +19,7 @@ def cmd_collect(args, settings, logger):
     q = UserQueue(Path(settings.DATABASE_PATH))
     count = 0
     for row in read_users_from_csv(csv_path):
-        if not row["user_id"]:
+        if not row.get("user_id"):
             continue
         q.enqueue(
             row["user_id"],
@@ -61,18 +61,20 @@ def cmd_send(args, settings, logger):
                 if ok:
                     q.mark_sent(item.id)
                     sent += 1
-                    break
-                else:
-                    raise RuntimeError("Permanent failure")
+                    break  # next user
+                raise RuntimeError("Permanent failure reported by sender")
             except Exception as e:
                 attempts += 1
                 if attempts >= max_attempts:
                     q.mark_failed(item.id, f"{type(e).__name__}: {e}")
-                    logger.warning(f"Giving up after {attempts} attempts on {item.user_id}")
+                    logger.warning(
+                        f"Giving up after {attempts} attempts on {item.user_id}"
+                    )
                     break
                 backoff = min(2 ** attempts, 60) + random.uniform(0, 0.25)
                 logger.info(
-                    f"Retrying {item.user_id} in {backoff:.1f}s (attempt {attempts}/{max_attempts-1})"
+                    f"Retrying {item.user_id} in {backoff:.1f}s "
+                    f"(attempt {attempts}/{max_attempts-1})"
                 )
                 sleep(backoff)
 
@@ -85,8 +87,8 @@ def cmd_assist(args, settings, logger):
     q = UserQueue(Path(settings.DATABASE_PATH))
     msg = args.message or settings.DEFAULT_MESSAGE
     limit = getattr(args, "limit", 50)
-    handled = 0
 
+    handled = 0
     while handled < limit:
         item = q.dequeue()
         if not item:
@@ -108,7 +110,6 @@ def cmd_assist(args, settings, logger):
             q.mark_failed(item.id, "manual_failed")
         elif choice == "q":
             break
-
         handled += 1
 
     logger.info(f"Handled {handled} users.")
@@ -126,8 +127,12 @@ def main(argv: Optional[list[str]] = None) -> int:
 
     # collect
     p_collect = sub.add_parser("collect", help="Enqueue users from CSV.")
-    p_collect.add_argument("--csv", type=str, default="data/sample_users.csv", help="Path to CSV.")
-    p_collect.add_argument("--sample", action="store_true", help="Write a sample CSV before collecting.")
+    p_collect.add_argument(
+        "--csv", type=str, default="data/sample_users.csv", help="Path to CSV."
+    )
+    p_collect.add_argument(
+        "--sample", action="store_true", help="Write a sample CSV before collecting."
+    )
     p_collect.set_defaults(func=lambda a: cmd_collect(a, settings, logger))
 
     # queue
@@ -141,8 +146,10 @@ def main(argv: Optional[list[str]] = None) -> int:
     p_send.add_argument("--message", type=str, help="Message text (optional).")
     p_send.set_defaults(func=lambda a: cmd_send(a, settings, logger))
 
-    # assist (manual)
-    p_assist = sub.add_parser("assist", help="Open each profile; you DM manually; mark result.")
+    # assist (manual workflow)
+    p_assist = sub.add_parser(
+        "assist", help="Open each profile; you DM manually; mark result."
+    )
     p_assist.add_argument("--limit", type=int, default=50)
     p_assist.add_argument("--message", type=str)
     p_assist.set_defaults(func=lambda a: cmd_assist(a, settings, logger))
