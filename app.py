@@ -1,4 +1,3 @@
-cat > app.py <<'PY'
 from __future__ import annotations
 import argparse
 from pathlib import Path
@@ -57,7 +56,8 @@ def cmd_send(args, settings, logger):
                     q.mark_sent(item.id)
                     sent += 1
                     break
-                raise RuntimeError("Permanent failure reported by sender")
+                else:
+                    raise RuntimeError("Permanent failure reported by sender")
             except Exception as e:
                 attempts += 1
                 if attempts >= max_attempts:
@@ -83,6 +83,7 @@ def cmd_assist(args, settings, logger):
         if not item:
             logger.info("No more pending.")
             break
+
         url = f"https://www.tiktok.com/@{item.user_id.lstrip('@')}"
         print("\nOpen:", url)
         print("Paste this message:\n", msg)
@@ -90,6 +91,7 @@ def cmd_assist(args, settings, logger):
             webbrowser.open_new_tab(url)
         except Exception:
             pass
+
         choice = input("Type 's' sent, 'f' failed, 'q' quit: ").strip().lower()
         if choice == "s":
             q.mark_sent(item.id)
@@ -98,6 +100,7 @@ def cmd_assist(args, settings, logger):
         elif choice == "q":
             break
         handled += 1
+
     logger.info(f"Handled {handled} users.")
 
 
@@ -141,4 +144,3 @@ def main(argv: Optional[list[str]] = None) -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-PY
