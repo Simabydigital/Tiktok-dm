@@ -103,6 +103,11 @@ def main(argv: Optional[list[str]] = None) -> int:
     sub = p.add_subparsers(dest="cmd", required=True)
 
     p_collect = sub.add_parser("collect", help="Enqueue users from CSV.")
+    p_assist = sub.add_parser("assist", help="Open each profile; you DM manually; mark result.")
+p_assist.add_argument("--limit", type=int, default=50)
+p_assist.add_argument("--message", type=str)
+p_assist.set_defaults(func=lambda a: cmd_assist(a, settings, logger))
+
     p_collect.add_argument("--csv", type=str, default="data/sample_users.csv", help="Path to CSV.")
     p_collect.add_argument("--sample", action="store_true", help="Write a sample CSV before collecting.")
     p_collect.set_defaults(func=lambda a: cmd_collect(a, settings, logger))
