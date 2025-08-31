@@ -1,3 +1,4 @@
+cat > app.py <<'PY'
 from __future__ import annotations
 import argparse
 from pathlib import Path
@@ -144,3 +145,4 @@ def main(argv: Optional[list[str]] = None) -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+PY
