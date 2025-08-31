@@ -1,3 +1,4 @@
+cat > app.py <<'PY'
 from __future__ import annotations
 import argparse
 from pathlib import Path
@@ -20,7 +21,10 @@ def cmd_collect(args, settings, logger):
     for row in read_users_from_csv(csv_path):
         if not row["user_id"]:
             continue
-        q.enqueue(row["user_id"], {"source": "csv", "comment_text": row.get("comment_text", "")})
+        q.enqueue(
+            row["user_id"],
+            {"source": "csv", "comment_text": row.get("comment_text", "")},
+        )
         count += 1
     logger.info(f"Enqueued {count} users from {csv_path}")
 
@@ -40,8 +44,8 @@ def cmd_send(args, settings, logger):
 
     limit = args.limit or 10
     max_attempts = 3
-
     sent = 0
+
     while sent < limit:
         item = q.dequeue()
         if not item:
@@ -51,13 +55,15 @@ def cmd_send(args, settings, logger):
         attempts = 0
         while attempts < max_attempts:
             try:
-                ok = dm.send_message(item.user_id, args.message or settings.DEFAULT_MESSAGE)
+                ok = dm.send_message(
+                    item.user_id, args.message or settings.DEFAULT_MESSAGE
+                )
                 if ok:
                     q.mark_sent(item.id)
                     sent += 1
                     break
                 else:
-                    raise RuntimeError("Permanent failure reported by sender")
+                    raise RuntimeError("Permanent failure")
             except Exception as e:
                 attempts += 1
                 if attempts >= max_attempts:
@@ -65,7 +71,9 @@ def cmd_send(args, settings, logger):
                     logger.warning(f"Giving up after {attempts} attempts on {item.user_id}")
                     break
                 backoff = min(2 ** attempts, 60) + random.uniform(0, 0.25)
-                logger.info(f"Retrying {item.user_id} in {backoff:.1f}s (attempt {attempts}/{max_attempts-1})")
+                logger.info(
+                    f"Retrying {item.user_id} in {backoff:.1f}s (attempt {attempts}/{max_attempts-1})"
+                )
                 sleep(backoff)
 
     logger.info(f"Sent {sent} messages (simulated).")
@@ -73,11 +81,12 @@ def cmd_send(args, settings, logger):
 
 def cmd_assist(args, settings, logger):
     import webbrowser
+
     q = UserQueue(Path(settings.DATABASE_PATH))
     msg = args.message or settings.DEFAULT_MESSAGE
     limit = getattr(args, "limit", 50)
-
     handled = 0
+
     while handled < limit:
         item = q.dequeue()
         if not item:
@@ -99,6 +108,7 @@ def cmd_assist(args, settings, logger):
             q.mark_failed(item.id, "manual_failed")
         elif choice == "q":
             break
+
         handled += 1
 
     logger.info(f"Handled {handled} users.")
@@ -131,7 +141,7 @@ def main(argv: Optional[list[str]] = None) -> int:
     p_send.add_argument("--message", type=str, help="Message text (optional).")
     p_send.set_defaults(func=lambda a: cmd_send(a, settings, logger))
 
-    # assist (manual workflow)
+    # assist (manual)
     p_assist = sub.add_parser("assist", help="Open each profile; you DM manually; mark result.")
     p_assist.add_argument("--limit", type=int, default=50)
     p_assist.add_argument("--message", type=str)
@@ -142,6 +152,6 @@ def main(argv: Optional[list[str]] = None) -> int:
     return 0
 
 
-
 if __name__ == "__main__":
     raise SystemExit(main())
+PY
